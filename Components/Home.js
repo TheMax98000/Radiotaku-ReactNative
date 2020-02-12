@@ -26,16 +26,15 @@ const Home = () => {
   const musicTitleUrl = 'https://radiotaku.net/ajax/get_title.php?json=1';
   const musicCoverUrl = 'https://radiotaku.net/ajax/get_image.php';
   const musicParolesUrl = 'https://radiotaku.net/ajax/get_paroles.php?app=1';
-  const [musicTitle, setMusicTitle ] = useState(true);
-  const [musicTime, setMusicTime ] = useState(true);
-  const [musicAchat, setMusicAchat ] = useState(true);
-  const [musicCover, setMusicCover ] = useState(true);
-  const [musicParoles, setMusicParoles ] = useState(true);
-  const [musicOrigTitle, setMusicOrigTitle ] = useState(true);
-  //const [playPauseButton, setPlayPauseButton ] = useState(true);
+  const [Data, setData ] = useState();
+  // const [musicTitle, setMusicTitle ] = useState();
+  // const [musicTime, setMusicTime ] = useState();
+  // const [musicAchat, setMusicAchat ] = useState();
+  // const [musicCover, setMusicCover ] = useState();
+  // const [musicParoles, setMusicParoles ] = useState();
+  // const [musicOrigTitle, setMusicOrigTitle ] = useState();
   let playPauseButton = 'Play';
   let playPauseButtonIcon = 'play-arrow'; /* ou 'stop' */
-
 
   useEffect(()=>{
 
@@ -55,45 +54,73 @@ const Home = () => {
         return responseJson;
       })
       .then( responseJson  => {
-        setMusicTitle(responseJson.Nom);
-        setMusicTime(responseJson.Duree);
-        setMusicAchat(responseJson.Achat);
 
-        /* Si musique a changée, on update le cover et les paroles */
-        if (musicTitle != musicOrigTitle) {
+        if (Data == undefined) {
 
-            getMusicCoverLyrics();
+          var predata = new Object();
+    
+        } else {
+
+          var predata = Data;
 
         }
+
+        predata.MusicTitle = responseJson.Nom;
+        predata.MusicTime = responseJson.Duree;
+        predata.MusicAchat = responseJson.Achat;
+
+        // setMusicTitle(responseJson.Nom);
+        // setMusicTime(responseJson.Duree);
+        // setMusicAchat(responseJson.Achat);
+
+        /* Si musique a changée, on update le cover et les paroles */
+        if (predata.MusicTitle != predata.MusicOrigTitle && predata.MusicOrigTitle != '') {
+
+            getMusicCoverLyrics(predata);
+
+        } else {
+
+          setData(predata);
+
+        }
+
+        
 
       });
 
     }
 
-    function getMusicCoverLyrics() {
+    function getMusicCoverLyrics(predata) {
 
       /* On set le titre de la musique en cours */
-      setMusicOrigTitle(musicTitle);
+      predata.MusicOrigTitle = predata.MusicTitle;
+      //setMusicOrigTitle(musicTitle);
 
       /* On récupère le cover */
-      fetch(musicCoverUrl + "?name=" + encodeURI(musicTitle))
+      fetch(musicCoverUrl + "?name=" + encodeURI(predata.MusicTitle))
       .then((response) => response.text())
       .then((responseText) => {
-        setMusicCover(responseText);
-      });
+        predata.MusicCover = responseText;
+        //setMusicCover(responseText);
 
-      /* On récupère les paroles */
-      fetch(musicParolesUrl + "&name=" + encodeURI(musicTitle))
-      .then((response) => response.text())
-      .then((responseText) => {
-        setMusicParoles(responseText);
+          /* On récupère les paroles */
+        fetch(musicParolesUrl + "&name=" + encodeURI(predata.MusicTitle))
+        .then((response) => response.text())
+        .then((responseText) => {
+          predata.MusicParoles = responseText;
+          //setMusicParoles(responseText);
+
+          setData(predata);
+
+        });
+
       });
 
     }
 
     function redirectAchat() {
 
-      Linking.openURL(musicAchat);
+      Linking.openURL(Data.musicAchat);
 
     }
 
@@ -133,7 +160,7 @@ const Home = () => {
                     Musique en diffusion :
                 </Text>
                 <Text style={styles.MusicTitle}>
-                    {musicTitle} {musicTime}
+                    {(Data == undefined) ? '' : Data.MusicTitle} {(Data == undefined) ? '' : Data.MusicTime}
                 </Text>
                 <View
                   style={{
@@ -142,10 +169,10 @@ const Home = () => {
                     marginRight: 'auto',
                   }}
                 >
-                {musicAchat == '' ? null : <Icon.Button name="music-note" size={25} onPress={() => redirectAchat()}> Acheter le CD</Icon.Button>}
+                {(Data == undefined || Data.MusicAchat == '') ? null : <Icon.Button name="music-note" size={25} onPress={() => redirectAchat()}> Acheter le CD</Icon.Button>}
                 </View>
 
-                {(musicCover == '' || musicCover == null || musicCover == true || musicCover == false) ? null : <Image 
+                {(Data == undefined || Data.MusicCover == '' || Data.MusicCover == null || Data.MusicCover == true || Data.MusicCover == false) ? null : <Image 
                 style={{
                     flex: 1,
                     width: 250,
@@ -157,14 +184,14 @@ const Home = () => {
                     marginRight: 'auto',
                     borderRadius: 5,
                 }}
-                source={{uri: musicCover}}
+                source={{uri: Data.MusicCover}}
                 >
                 </Image>}
 
                 <View style={styles.MusicParolesContainer}>
                     <ScrollView nestedScrollEnabled = {true}>
                         <Text style={styles.MusicParoles}>
-                            {musicParoles}
+                            {(Data == undefined) ? '' : Data.MusicParoles}
                         </Text>
                     </ScrollView>
                 </View>
