@@ -72,9 +72,7 @@ const Home = () => {
 
           setData(predata);
 
-        }
-
-        
+        }     
 
       });
 
@@ -113,7 +111,11 @@ const Home = () => {
     }
 
     /* Execution au lancement */
-    getMusicTitle();
+    if (Data == undefined) {
+
+      getMusicTitle();
+
+    }
     
 
   return (
