@@ -27,12 +27,6 @@ const Home = () => {
   const musicCoverUrl = 'https://radiotaku.net/ajax/get_image.php';
   const musicParolesUrl = 'https://radiotaku.net/ajax/get_paroles.php?app=1';
   const [Data, setData ] = useState();
-  // const [musicTitle, setMusicTitle ] = useState();
-  // const [musicTime, setMusicTime ] = useState();
-  // const [musicAchat, setMusicAchat ] = useState();
-  // const [musicCover, setMusicCover ] = useState();
-  // const [musicParoles, setMusicParoles ] = useState();
-  // const [musicOrigTitle, setMusicOrigTitle ] = useState();
   let playPauseButton = 'Play';
   let playPauseButtonIcon = 'play-arrow'; /* ou 'stop' */
 
@@ -69,10 +63,6 @@ const Home = () => {
         predata.MusicTime = responseJson.Duree;
         predata.MusicAchat = responseJson.Achat;
 
-        // setMusicTitle(responseJson.Nom);
-        // setMusicTime(responseJson.Duree);
-        // setMusicAchat(responseJson.Achat);
-
         /* Si musique a changée, on update le cover et les paroles */
         if (predata.MusicTitle != predata.MusicOrigTitle && predata.MusicOrigTitle != '') {
 
@@ -94,21 +84,19 @@ const Home = () => {
 
       /* On set le titre de la musique en cours */
       predata.MusicOrigTitle = predata.MusicTitle;
-      //setMusicOrigTitle(musicTitle);
 
       /* On récupère le cover */
       fetch(musicCoverUrl + "?name=" + encodeURI(predata.MusicTitle))
       .then((response) => response.text())
       .then((responseText) => {
-        predata.MusicCover = responseText;
-        //setMusicCover(responseText);
 
-          /* On récupère les paroles */
+        predata.MusicCover = responseText;
+
+        /* On récupère les paroles */
         fetch(musicParolesUrl + "&name=" + encodeURI(predata.MusicTitle))
         .then((response) => response.text())
         .then((responseText) => {
           predata.MusicParoles = responseText;
-          //setMusicParoles(responseText);
 
           setData(predata);
 
