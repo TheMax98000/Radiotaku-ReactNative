@@ -106,7 +106,7 @@ const Home = () => {
 
     function redirectAchat() {
 
-      Linking.openURL(Data.musicAchat);
+      Linking.openURL(Data.MusicAchat);
 
     }
 
