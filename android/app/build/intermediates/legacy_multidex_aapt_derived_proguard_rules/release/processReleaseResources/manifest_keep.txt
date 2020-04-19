@@ -1,0 +1,4 @@
+# Referenced at C:\Users\Administrateur\Documents\Apps\ReactNative\Radiotaku\android\app\build\intermediates\merged_manifests\release\AndroidManifest.xml:18
+-keep class androidx.core.app.CoreComponentFactory { <init>(); }
+# Referenced at C:\Users\Administrateur\Documents\Apps\ReactNative\Radiotaku\android\app\build\intermediates\merged_manifests\release\AndroidManifest.xml:18
+-keep class com.radiotaku.MainApplication { <init>(); }

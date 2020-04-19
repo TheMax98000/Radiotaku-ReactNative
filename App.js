@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import * as RNLocalize from "react-native-localize";
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Home from './Components/Home'
 import Offline from './Components/Offline'
@@ -19,7 +20,41 @@ import Offline from './Components/Offline'
 const Tab = createBottomTabNavigator();
 //import Navigation from './Navigation/Navigation'
 
+const langs = RNLocalize.getLocales();
+const avail_langs = new Array('fr', 'en', 'jp');
+let current_lang = 'en';
+
+for (let i = 0; i < langs.length; i++) {
+
+  var lang = langs[i];
+
+  if (avail_langs.indexOf(lang.languageCode) != -1) {
+
+    current_lang = lang.languageCode;
+    break;
+    
+  }
+
+}
+
+/* LANG STRINGS ARRAY */
+var translate = {
+  'fr': {
+    'TAB_ONLINE': 'Mode en ligne',
+    'TAB_OFFLINE': 'Mode hors ligne'
+  },
+  'en': {
+    'TAB_ONLINE': 'Online mode',
+    'TAB_OFFLINE': 'Offline mode'
+  },
+  'jp': {
+    'TAB_ONLINE': 'オンラインモード',
+    'TAB_OFFLINE': 'オフラインモード'
+  }
+};
+
 export default class App extends React.Component {
+
   render() {
     return (
       <>
@@ -29,11 +64,11 @@ export default class App extends React.Component {
           tabBarIcon: ({ focused, color, size }) => {
             let iconName;
 
-            if (route.name === 'Mode en ligne') {
+            if (route.name === 'Mode en ligne' || route.name === 'Online mode' || route.name === 'オンラインモード') {
               iconName = focused
                 ? 'access-point'
                 : 'access-point';
-            } else if (route.name === 'Mode hors ligne') {
+            } else if (route.name === 'Mode hors ligne' || route.name === 'Offline mode' || route.name === 'オフラインモード') {
               iconName = focused ? 'access-point-network-off' : 'access-point-network-off';
             }
 
@@ -51,8 +86,14 @@ export default class App extends React.Component {
           },
         }}
       >
-          <Tab.Screen name="Mode en ligne" component={Home} />
-          <Tab.Screen name="Mode hors ligne" component={Offline} />
+          <Tab.Screen 
+          name={translate[current_lang]['TAB_ONLINE']} 
+          component={Home}
+          />
+          <Tab.Screen 
+          name={translate[current_lang]['TAB_OFFLINE']} 
+          component={Offline}
+           />
         </Tab.Navigator>
       </NavigationContainer>
       </>

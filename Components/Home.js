@@ -1,5 +1,7 @@
 import React, {useState, useEffect} from 'react';
 
+import { useFocusEffect } from '@react-navigation/native';
+
 import {
   SafeAreaView,
   StyleSheet,
@@ -8,10 +10,12 @@ import {
   Text,
   ImageBackground,
   StatusBar,
-  Button,
   Linking,
   Image,
+  Shape,
 } from 'react-native';
+
+import { Button } from 'react-native-material-ui';
 
 import {
   Colors,
@@ -19,26 +23,138 @@ import {
 
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
-import { Player, MediaStates } from '@react-native-community/audio-toolkit';
- 
+import TrackPlayer, {
+  usePlaybackState,
+  useTrackPlayerEvents
+} from "react-native-track-player";
+
+import Share from 'react-native-share'
+
+import * as RNLocalize from "react-native-localize";
+
+import {
+  AdMobInterstitial,
+} from 'react-native-admob'
+
+const langs = RNLocalize.getLocales();
+const avail_langs = new Array('fr', 'en', 'jp');
+let current_lang = 'en';
+
+for (let i = 0; i < langs.length; i++) {
+
+  var lang = langs[i];
+
+  if (avail_langs.indexOf(lang.languageCode) != -1) {
+
+    current_lang = lang.languageCode;
+    break;
+    
+  }
+
+}
+
+/* LANG STRINGS ARRAY */
+var translate = {
+  'fr': {
+    'TITLE': 'Radiotaku',
+    'SUBTITLE': 'La radio 100% J-POP, J-ROCK, OST !',
+    'CURRENT_SONG': 'Musique en diffusion',
+    'BUY_CD': 'Acheter le CD',
+    'NEXT_SONGS': 'Prochaines musiques',
+    'HELP_US': 'Soutenez nous',
+    'HELP_US_UTIP': 'Aidez nous sur Utip',
+    'SHARE': 'Partager Radiotaku',
+  },
+  'en': {
+    'TITLE': 'Radiotaku',
+    'SUBTITLE': 'The radio 100% J-POP, J-ROCK, OST !',
+    'CURRENT_SONG': 'Current song',
+    'BUY_CD': 'Buy CD',
+    'NEXT_SONGS': 'Next songs',
+    'HELP_US': 'Help us',
+    'HELP_US_UTIP': 'Help us on Utip',
+    'SHARE': 'Share Radiotaku',
+  },
+  'jp': {
+    'TITLE': 'ラジオタク',
+    'SUBTITLE': 'ラジオ100％J-POP、J-ROCK、OST！',
+    'CURRENT_SONG': '現在の歌',
+    'BUY_CD': 'CDを購入',
+    'NEXT_SONGS': '次の曲',
+    'HELP_US': '助けて',
+    'HELP_US_UTIP': 'Utipで私たちを助けてください',
+    'SHARE': 'ラジオタクを共有',
+  }
+};
+
 const Home = () => {
 
   const musicTitleUrl = 'https://radiotaku.net/ajax/get_title.php?json=1';
   const musicCoverUrl = 'https://radiotaku.net/ajax/get_image.php';
   const musicParolesUrl = 'https://radiotaku.net/ajax/get_paroles.php?app=1';
+  const musicNextUrl = 'https://radiotaku.net/ajax/get_next.php?app=1';
   const [Data, setData ] = useState();
-  let playPauseButton = 'Play';
-  let playPauseButtonIcon = 'play-arrow'; /* ou 'stop' */
+  const [MusicPlayer, setMusicPlayer ] = useState();
+  const shareOptions = {
+    title: 'Partager via',
+    message: 'Radiotaku : https://radiotaku.net \n\n La radio 100% J-POP, J-ROCK, OST !', 
+  };
+ 
+  // useEffect(()=> {
 
-  useEffect(()=>{
+  // } , []);
 
-    setInterval(() => {
-
-      getMusicTitle();
+  useFocusEffect(
+    React.useCallback(() => {
+  
+      /* Actions quand a le focus */
       
-    }, 5000);
+      // Creates the player
+      TrackPlayer.setupPlayer().then(() => {
 
-  } , []);
+        TrackPlayer.stop();
+
+        TrackPlayer.removeUpcomingTracks();
+
+        // Adds a track to the queue
+        TrackPlayer.add({
+            id: 'radiotaku-player',
+            url: 'https://radiotaku.net/stream',
+            title: 'Radiotaku',
+            artist: '',
+        });
+
+      });
+
+      TrackPlayer.updateOptions({  
+        // An array of capabilities that will show up when the notification is in the compact form on Android
+        capabilities: [
+          TrackPlayer.CAPABILITY_PLAY,
+          TrackPlayer.CAPABILITY_STOP,
+        ],
+        compactCapabilities: [
+            TrackPlayer.CAPABILITY_PLAY,
+            TrackPlayer.CAPABILITY_STOP
+        ]
+      });
+
+      /* Pub au lancement */
+      AdMobInterstitial.setAdUnitID('ca-app-pub-5013571620129762/7170918286');
+      AdMobInterstitial.setTestDevices([AdMobInterstitial.simulatorId]);
+      AdMobInterstitial.requestAd().then(() => AdMobInterstitial.showAd()).catch(err => {
+      });
+
+      setInterval(() => {
+
+        getMusicTitle();
+        
+      }, 5000);
+
+      return () => {
+        /* Actions quand perte focus */
+      };
+    }, [])
+  );
 
     function getMusicTitle() {
 
@@ -96,7 +212,16 @@ const Home = () => {
         .then((responseText) => {
           predata.MusicParoles = responseText;
 
-          setData(predata);
+          /* On récupère les prochaines musiques */
+          fetch(musicNextUrl)
+          .then((response) => response.text())
+          .then((responseText) => {
+
+            predata.MusicNext = responseText;
+
+            setData(predata);
+
+          });
 
         });
 
@@ -110,10 +235,65 @@ const Home = () => {
 
     }
 
+    function helpUtip() {
+
+      Linking.openURL('https://utip.io/radiotaku');
+
+    }
+
+    function shareWebsite() {
+
+      Share.open(shareOptions)
+      .then((res) => { console.log(res) })
+      .catch((err) => { err && console.log(err); });
+
+    }
+
+    function playPause() {
+
+      /* Si bouton cliqué */
+      PreMusicPlayer = MusicPlayer;
+
+      /* Si Musique stoppée */
+      if (MusicPlayer.State == "stopped") {
+
+        /* On lance la musique */
+        PreMusicPlayer.State = "playing";
+        PreMusicPlayer.PlayPauseButton = "Stop";
+        PreMusicPlayer.PlayPauseButtonIcon = "stop";
+        //global.RadioPlayer.play();
+        TrackPlayer.play();
+
+      } else if (MusicPlayer.State == "playing") {
+        /* Si Musique en cours */
+
+        /* On arrête la musique */
+        PreMusicPlayer.State = "stopped";
+        PreMusicPlayer.PlayPauseButton = "Play";
+        PreMusicPlayer.PlayPauseButtonIcon = "play-arrow";
+        TrackPlayer.stop();
+
+      }
+
+      setMusicPlayer(PreMusicPlayer);
+
+    }
+
     /* Execution au lancement */
     if (Data == undefined) {
 
       getMusicTitle();
+
+    }
+
+    if (MusicPlayer == undefined) {
+
+      PreMusicPlayer = new Object();
+
+      PreMusicPlayer.State = "stopped";
+      PreMusicPlayer.PlayPauseButton = "Play";
+      PreMusicPlayer.PlayPauseButtonIcon = "play-arrow";
+      setMusicPlayer(PreMusicPlayer);
 
     }
     
@@ -129,11 +309,12 @@ const Home = () => {
           <View style={styles.body}>
             <ImageBackground source={require('../assets/background.png')} style={styles.backgroundImage}>
               <View style={styles.backgroundView}>
+                
                 <Text style={styles.TitleH1}>
-                  Radiotaku
+                  {translate[current_lang]['TITLE']}
                 </Text>
                 <Text style={styles.TitleH2}>
-                  La radio 100% J-POP, J-ROCK, OST !
+                  {translate[current_lang]['SUBTITLE']}
                 </Text>
                 <View
                   style={{
@@ -147,7 +328,7 @@ const Home = () => {
                   }}
                 />
                 <Text style={styles.MusicTitleLabel}>
-                    Musique en diffusion :
+                  {translate[current_lang]['CURRENT_SONG']} :
                 </Text>
                 <Text style={styles.MusicTitle}>
                     {(Data == undefined) ? '' : Data.MusicTitle} {(Data == undefined) ? '' : Data.MusicTime}
@@ -159,7 +340,7 @@ const Home = () => {
                     marginRight: 'auto',
                   }}
                 >
-                {(Data == undefined || Data.MusicAchat == '') ? null : <Icon.Button name="music-note" size={25} onPress={() => redirectAchat()}> Acheter le CD</Icon.Button>}
+                {(Data == undefined || Data.MusicAchat == '') ? null : <Button raised primary upperCase={false} icon={<Icon name="music-note" size={25} color="white" />} text={translate[current_lang]['BUY_CD']} onPress={() => redirectAchat()} />}
                 </View>
 
                 {(Data == undefined || Data.MusicCover == '' || Data.MusicCover == null || Data.MusicCover == true || Data.MusicCover == false) ? null : <Image 
@@ -187,24 +368,80 @@ const Home = () => {
                 </View>
 
                 <View style={styles.MusicPlayer}>
-                    <Icon.Button name={playPauseButtonIcon} size={25} onPress={() => playPause()} >
-                        {playPauseButton}
+                    <Icon.Button name={(MusicPlayer == undefined) ? '' : MusicPlayer.PlayPauseButtonIcon} size={25} onPress={() => playPause()} >
+                        {(MusicPlayer == undefined) ? '' : MusicPlayer.PlayPauseButton}
                     </Icon.Button>
                 </View>
 
-                <Text style={{color: '#ffffff'}}>
-                  Duis nostrud sunt esse velit est voluptate veniam. In sunt nisi officia dolor anim voluptate voluptate occaecat qui. Laborum elit qui ex ad esse deserunt laborum qui fugiat sit enim non ullamco minim. Ut aliquip cillum irure eiusmod occaecat officia culpa qui.
-
-                  Sint tempor cupidatat et labore cillum proident dolor proident incididunt. Labore nostrud elit in officia dolor do. Magna qui est velit Lorem esse. Eiusmod cillum consequat adipisicing adipisicing sunt cupidatat mollit anim occaecat ea et consequat irure.
-
-                  Qui ipsum mollit ipsum laborum ullamco adipisicing sit occaecat anim voluptate enim. Dolor excepteur amet consequat Lorem. Ad adipisicing adipisicing cupidatat adipisicing laboris exercitation. Nulla anim id quis in. Do voluptate nostrud occaecat velit voluptate anim velit adipisicing anim sunt minim mollit ipsum.
-
-                  Deserunt cillum ad exercitation voluptate. Non voluptate et amet duis sunt est id id. Cupidatat nisi deserunt tempor nisi ipsum anim velit tempor velit qui. Mollit qui minim adipisicing cillum excepteur minim nulla cillum. Culpa sint deserunt cillum mollit do adipisicing. Officia cupidatat deserunt fugiat fugiat.
-
-                  Exercitation nulla mollit aliqua Lorem esse sit pariatur sint ex voluptate deserunt. Dolore ullamco non deserunt labore cupidatat. Anim dolore id anim elit cillum sit tempor officia Lorem elit magna voluptate deserunt. Labore ullamco velit commodo amet occaecat incididunt ipsum veniam laboris culpa eu elit incididunt. Fugiat reprehenderit qui fugiat dolor Lorem tempor ullamco. Veniam qui enim cupidatat duis non ea velit. Nulla velit exercitation nulla consectetur.
-
-                  Nostrud anim est est sit duis magna aliquip duis excepteur magna tempor. Adipisicing consectetur proident aliqua cillum culpa sit eu eu adipisicing nisi exercitation. Aliquip non est nisi in. Sunt tempor ut quis id. Magna exercitation sunt ea eu sint labore est sint aute consectetur voluptate amet irure labore.
+                <Text style={styles.MusicTitleLabel}>
+                  {translate[current_lang]['NEXT_SONGS']} :
                 </Text>
+
+                <View style={styles.MusicNextScrollView}>
+                    <ScrollView nestedScrollEnabled = {true}>
+                      <Text style={styles.MusicNext}>
+                        {(Data == undefined) ? '' : Data.MusicNext}
+                      </Text>
+                    </ScrollView>
+                </View>
+                
+                <View
+                  style={{
+                    borderBottomColor: 'white',
+                    borderBottomWidth: 1,
+                    marginBottom: 20,
+                    width: '60%',
+                    marginLeft: 'auto',
+                    marginRight: 'auto',
+                  }}
+                />
+
+                <Text style={styles.MusicTitleLabel}>
+                  {translate[current_lang]['HELP_US']} :
+                </Text>
+
+                <View
+                  style={{
+                    width: '80%',
+                    marginLeft: 'auto',
+                    marginRight: 'auto',
+                    marginBottom: 15,
+                  }}
+                >
+
+                  <Button 
+                  raised
+                  upperCase={false}
+                  style={{container: styles.HelpUtip,
+                  text: styles.HelpUtipText}}
+                  text={translate[current_lang]['HELP_US_UTIP']}
+                  icon={<Icon name="live-tv" size={45} color="white" />}
+                  onPress={() => helpUtip()}
+                  />
+
+                </View>
+                
+                <View
+                  style={{
+                    width: '80%',
+                    marginLeft: 'auto',
+                    marginRight: 'auto',
+                    marginBottom: 15,
+                  }}
+                >
+                
+                  <Button 
+                  raised
+                  upperCase={false}
+                  style={{container: styles.ShareBtn,
+                  text: styles.ShareBtnText}}
+                  text={translate[current_lang]['SHARE']}
+                  icon={<Icon name="share" size={45} color="white" />}
+                  onPress={() => shareWebsite()}
+                  />
+                
+                </View>
+                
               </View>
             </ImageBackground>    
           </View>
@@ -274,6 +511,37 @@ const styles = StyleSheet.create({
   MusicPlayer: {
     marginTop: 10,
     marginBottom: 15,
+  },
+  MusicAdvice: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontSize: 14,
+    marginBottom: 15,
+  },
+  MusicNextScrollView: {
+    height: 250,
+    marginBottom: 15,
+  },
+  MusicNext: {
+    color: 'rgba(25, 252, 210, 1)',
+    textAlign: 'center',
+    fontSize: 18,
+  },
+  HelpUtip: {
+    backgroundColor: 'darkred',
+    height: 60,
+  },
+  HelpUtipText: {
+    color: '#FFFFFF',
+    marginLeft: 10,
+  },
+  ShareBtn: {
+    backgroundColor: 'darkgreen',
+    height: 60,
+  },
+  ShareBtnText: {
+    color: '#FFFFFF',
+    marginLeft: 10,
   },
 });
 
