@@ -58,7 +58,7 @@ export default class App extends React.Component {
   render() {
     return (
       <>
-      <NavigationContainer>
+      <NavigationContainer headerMode="none">
         <Tab.Navigator
         screenOptions={({ route }) => ({
           tabBarIcon: ({ focused, color, size }) => {
@@ -74,6 +74,7 @@ export default class App extends React.Component {
 
             return <Icon name={iconName} size={size} color={color} />;
           },
+          headerShown: false,
         })}
         tabBarOptions={{
           activeTintColor: 'rgba(25, 252, 210, 1)',
@@ -89,10 +90,12 @@ export default class App extends React.Component {
           <Tab.Screen 
           name={translate[current_lang]['TAB_ONLINE']} 
           component={Home}
+          options={{headerShown: false}}
           />
           <Tab.Screen 
           name={translate[current_lang]['TAB_OFFLINE']} 
           component={Offline}
+          options={{headerShown: false}}
            />
         </Tab.Navigator>
       </NavigationContainer>

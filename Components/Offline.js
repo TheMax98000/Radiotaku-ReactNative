@@ -14,6 +14,7 @@ import {
   Image,
   Shape,
   Alert,
+  Platform
 } from 'react-native';
 
 import { Button } from 'react-native-material-ui';
@@ -31,7 +32,17 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 
 import RNFS from 'react-native-fs';
 
-import {PERMISSIONS, requestMultiple} from 'react-native-permissions';
+//import localTrack from '../assets/test.mp3';
+
+var PERMISSIONS;
+var requestMultiple;
+
+if (Platform.OS === 'android') {
+
+  PERMISSIONS = require('react-native-permissions').PERMISSIONS;
+  requestMultiple = require('react-native-permissions').requestMultiple();
+
+}
 
 import * as RNLocalize from "react-native-localize";
 
@@ -79,6 +90,7 @@ var translate = {
     'SURE_ASK': "En validant, l'intégralité des musiques, jingles, covers et paroles va être supprimé de votre appareil, puis retéléchargé.\r\nAssurez vous de disposer d'au moins 2Go d'espace disque avant de continuer.",
     'VALIDATE': 'Valider',
     'PLAYLIST_GENERATE': "Génération de la playlist...",
+    'ACTIONS_REGEN_PLAYLIST': "Regénérer la playlist",
   },
   'en': {
     'TITLE': 'Radiotaku',
@@ -104,6 +116,7 @@ var translate = {
     'SURE_ASK': "By validating, all of the songs, jingles, covers and lyrics will be deleted from your device, then redownloaded.\r\nMake sure you have at least 2GB of disk space before continuing.",
     'VALIDATE': 'Validate',
     'PLAYLIST_GENERATE': "Playlist generation...",
+    'ACTIONS_REGEN_PLAYLIST': "Refresh playlist",
   },
   'jp': {
     'TITLE': 'ラジオタク',
@@ -129,6 +142,7 @@ var translate = {
     'SURE_ASK': "検証すると、すべての曲、ジングル、カバー、歌詞がデバイスから削除され、再ダウンロードされます.\r\n続行する前に、少なくとも2GBのディスク容量があることを確認してください.",
     'VALIDATE': '検証',
     'PLAYLIST_GENERATE': "プレイリストの生成...",
+    'ACTIONS_REGEN_PLAYLIST': "プレイリストを更新",
   }
 };
 
@@ -146,14 +160,12 @@ const Offline = () => {
     React.useCallback(() => {
       
       /* Actions quand a le focus */
+      TrackPlayer.stop();
+
+      TrackPlayer.removeUpcomingTracks();
 
       // Creates the player
       TrackPlayer.setupPlayer().then(() => {
-
-        TrackPlayer.stop();
-
-        TrackPlayer.removeUpcomingTracks();
-
       });
 
       TrackPlayer.updateOptions({  
@@ -187,7 +199,7 @@ const Offline = () => {
 
         updateButton();
         
-      }, 5000);
+      }, 2000);
 
       return () => {
         /* Actions quand perd le focus */
@@ -198,24 +210,40 @@ const Offline = () => {
   function checkPerms(action = "checkSongs", update = false) {
 
     /* On check les permissions */
-    requestMultiple([PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE, PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE]).then((statuses) => {
-      
-      if (statuses["android.permission.READ_EXTERNAL_STORAGE"] == "granted" && statuses["android.permission.WRITE_EXTERNAL_STORAGE"] == "granted") {
+    if (Platform.OS == 'android') {
 
-        if (action == "checkSongs") {
+      requestMultiple([PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE, PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE]).then((statuses) => {
+            
+            if (statuses["android.permission.READ_EXTERNAL_STORAGE"] == "granted" && statuses["android.permission.WRITE_EXTERNAL_STORAGE"] == "granted") {
 
-          checkSongs(update);
+              if (action == "checkSongs") {
 
-        } else if (action == "askClearCache") {
+                checkSongs(update);
 
-          askClearCache();
+              } else if (action == "askClearCache") {
+
+                askClearCache();
+                
+              }
+              
+              
+            }    
           
-        }
+      });
+
+    } else {
+
+      if (action == "checkSongs") {
+
+        checkSongs(update);
+
+      } else if (action == "askClearCache") {
+
+        askClearCache();
         
-        
-      }    
-    
-    });
+      }
+
+    }
 
   }
 
@@ -243,7 +271,8 @@ const Offline = () => {
   }
 
   /* Fonction qui permet de faire un scrolltotop sur la ScrollView principale */
-  function goToTop() {
+  async function goToTop() {
+
     if (scrollViewRef !== null) {
 
       scrollViewRef.scrollTo({x: 0, y: 0, animated: true});
@@ -275,7 +304,8 @@ const Offline = () => {
 
     var musiqueId = await TrackPlayer.getCurrentTrack();
     var musique = await TrackPlayer.getTrack(musiqueId);
-    var musiqueName = musique.title;
+    //console.log(musique);
+    var musiqueName = encodeIOS(musique.title);
     var musiqueCover = musique.artwork;
 
     /* On check si le cover existe */
@@ -317,7 +347,7 @@ const Offline = () => {
     
       /* On associe l'image à la musique dans la playlist */
       TrackPlayer.updateMetadataForTrack(musiqueId, {
-        title: musiqueName,
+        title: decodeIOS(musiqueName),
         artwork: coverBase64,
       });   
 
@@ -356,13 +386,14 @@ const Offline = () => {
     var nexts = "";
 
     /* On setup le compteur */
-    var i = 0;
+    var i = -1;
 
     /* On boucle sur chaque musique */
     playlist.forEach(function(musique, index, array) {
 
-      /* Si on a pas atteint nos 10 musiques */
-      if (i < 10) {
+      /* Si on a pas atteint nos 10 musiques et 
+      que la musique n'est pas celle en diffusion */
+      if (i > -1 && i < 10) {
 
         /* On check si c'est un jingle */
         if (musique.title.includes("Jingle ")) {
@@ -386,6 +417,10 @@ const Offline = () => {
           i++;
         }
 
+      } else if (i == -1) {
+
+        i++;
+        
       }
 
     });
@@ -393,7 +428,7 @@ const Offline = () => {
     /* On met le cover dans data */
     var predata = getData();
 
-    predata.MusicTitle = musiqueName;
+    predata.MusicTitle = decodeIOS(musiqueName);
     predata.MusicCover = coverBase64;
     predata.MusicParoles = Lyrics;
     predata.MusicNext = nexts;
@@ -458,6 +493,8 @@ const Offline = () => {
 
       });
 
+    }).catch(err => {
+      /* Musiques pas encore dl on fait rien */
     });
     
   }
@@ -478,6 +515,18 @@ const Offline = () => {
 
     var i = 0;
     var id_musique = 0;
+    
+    if (Platform.OS === 'android') {
+
+      var filePrefix = 'file://';
+
+    } else {
+
+      var filePrefix = 'file://';
+
+    }
+
+    //var localTrack = filePrefix + RNFS.CachesDirectoryPath + '/songs/test-file.mp3';
 
     /* On boucle sur chaque musique */
     await musiques.forEach(function(musique, index, array) {
@@ -494,11 +543,12 @@ const Offline = () => {
         jingle = jingle.replace(".mp3", ""); 
 
         /* On ajoute un jingle à la playlist */
-        console.log(id_musique + ' - Jingle : ' + jingle);
+        //console.log(id_musique + ' - Jingle : ' + jingle);
         TrackPlayer.add({
           id: id_musique,
-          url: 'file://' + RNFS.CachesDirectoryPath + '/jingles/' + jingle + '.mp3',
-          title: jingle,
+          url: filePrefix + RNFS.CachesDirectoryPath + '/jingles/' + encodeURI(jingle) + '.mp3',
+          //url: encodeURI(localTrack),
+          title: decodeIOS(jingle),
           artist: '',
         });
         
@@ -508,12 +558,15 @@ const Offline = () => {
       }
 
       /* On ajoute la musique à la playlist */
-      console.log(id_musique + ' - Musique : ' + musiqueName);
+      console.log(filePrefix + RNFS.CachesDirectoryPath + '/songs/' + musiqueName + '.mp3');
       TrackPlayer.add({
         id: id_musique,
-        url: 'file://' + RNFS.CachesDirectoryPath + '/songs/' + musiqueName + '.mp3',
-        title: musiqueName,
+        url: filePrefix + RNFS.CachesDirectoryPath + '/songs/' + encodeURI(musiqueName) + '.mp3',
+        //url: encodeURI(localTrack),
+        title: decodeIOS(musiqueName),
         artist: '',
+      }).catch(err => {
+        console.log(err);
       });
 
       i++;
@@ -560,7 +613,7 @@ const Offline = () => {
   async function clearCache() {
 
     /* On remonte en haut de page */
-    goToTop();
+    await goToTop();
 
     /* On vide les musiques */
     await RNFS.unlink(RNFS.CachesDirectoryPath + '/songs').then(() => {
@@ -594,7 +647,7 @@ const Offline = () => {
   async function checkSongs(update = false, bypass = false) {
 
     /* On remonte en haut de page */
-    goToTop();
+    await goToTop();
 
     /* Si le dossier songs n'existe pas */
     await RNFS.exists(RNFS.CachesDirectoryPath + '/songs').then((exist) => {
@@ -735,13 +788,13 @@ const Offline = () => {
     if (update == false) {
 
       /* On crée les dossiers dans le cache */
-      RNFS.mkdir(RNFS.CachesDirectoryPath + '/songs').then(() => {
+      await RNFS.mkdir(RNFS.CachesDirectoryPath + '/songs').then(() => {
       });
 
-      RNFS.mkdir(RNFS.CachesDirectoryPath + '/covers').then(() => {
+      await RNFS.mkdir(RNFS.CachesDirectoryPath + '/covers').then(() => {
       });
 
-      RNFS.mkdir(RNFS.CachesDirectoryPath + '/lyrics').then(() => {
+      await RNFS.mkdir(RNFS.CachesDirectoryPath + '/lyrics').then(() => {
       });
 
       RNFS.mkdir(RNFS.CachesDirectoryPath + '/jingles').then(() => {
@@ -870,7 +923,7 @@ const Offline = () => {
         setData(predata);
 
         /* On stocke les paroles dans un fichier en cache */
-        await RNFS.writeFile(RNFS.CachesDirectoryPath + '/lyrics/' + musiqueName + '.txt', musiqueParoles).then(() => {
+        await RNFS.writeFile(RNFS.CachesDirectoryPath + '/lyrics/' + encodeIOS(musiqueName) + '.txt', musiqueParoles).then(() => {
         });
 
         /* On choppe le cover */
@@ -879,7 +932,7 @@ const Offline = () => {
         .then((coverBase64) => {
 
           /* On stocke le cover en base64 dans un fichier en cache */
-          RNFS.writeFile(RNFS.CachesDirectoryPath + '/covers/' + musiqueName + '.txt', coverBase64).then(() => {
+          RNFS.writeFile(RNFS.CachesDirectoryPath + '/covers/' + encodeIOS(musiqueName) + '.txt', coverBase64).then(() => {
           });
 
         });
@@ -887,7 +940,7 @@ const Offline = () => {
         /* On télécharge le mp3 */
         await RNFS.downloadFile({
           fromUrl: musicMP3Url + "&name=" + encodeURI(musiqueName),
-          toFile: RNFS.CachesDirectoryPath + '/songs/' + musiqueName + '.mp3',
+          toFile: RNFS.CachesDirectoryPath + '/songs/' + encodeIOS(musiqueName) + '.mp3',
           connectionTimeout: 12000,
           readTimeout: 12000,
         }).promise.then((r) => {
@@ -901,6 +954,34 @@ const Offline = () => {
 
     launchDownloadJingles(update);
 
+  }
+
+  function encodeIOS(string) {
+
+    if (Platform.OS === 'android') {
+
+      return string;
+
+    } else {
+
+      return string.split(' ').join('_').split('[').join('leftcr').split(']').join('rightcr').split('(').join('leftpar').split(')').join('rightpar').split('!').join('exclp').split("'").join('apost').split("~").join('tilde');
+
+    }
+    
+  }
+
+  function decodeIOS(string) {
+
+    if (Platform.OS === 'android') {
+
+      return string;
+
+    } else {
+
+      return string.split('_').join(' ').split('leftcr').join('[').split('rightcr').join(']').split('leftpar').join('(').split('rightpar').join(')').split('exclp').join('!').split('apost').join("'").split("tilde").join('~');
+
+    }
+    
   }
 
   /** 
@@ -929,7 +1010,7 @@ const Offline = () => {
         /* On télécharge le mp3 */
         await RNFS.downloadFile({
           fromUrl: musicMP3Url + "&jingle=1&name=" + encodeURI(jingleName),
-          toFile: RNFS.CachesDirectoryPath + '/jingles/' + jingleName + '.mp3',
+          toFile: RNFS.CachesDirectoryPath + '/jingles/' + encodeIOS(jingleName) + '.mp3',
           connectionTimeout: 12000,
           readTimeout: 12000,
         }).promise.then((r) => {
@@ -954,7 +1035,7 @@ const Offline = () => {
 
     var state = await TrackPlayer.getState();
 
-    if (state == TrackPlayer.STATE_STOPPED || state == TrackPlayer.STATE_PAUSED) {
+    if (state !== TrackPlayer.STATE_PLAYING) {
 
       TrackPlayer.play();
 
@@ -982,21 +1063,86 @@ const Offline = () => {
 
     var state = await TrackPlayer.getState();
 
+    //console.log(state);
+
     /* Si on vient de faire play */
     if (state == TrackPlayer.STATE_PLAYING) {
 
       PreMusicPlayer.PlayPauseButton = "Pause";
       PreMusicPlayer.PlayPauseButtonIcon = "pause";
 
-    } else if (state == TrackPlayer.STATE_STOPPED || state == TrackPlayer.STATE_PAUSED) {
+    } else if (state == TrackPlayer.STATE_STOPPED || state == TrackPlayer.STATE_PAUSED || state == TrackPlayer.STATE_BUFFERING) {
 
       /* Si on vient de faire pause ou stop */
       PreMusicPlayer.PlayPauseButton = "Play";
       PreMusicPlayer.PlayPauseButtonIcon = "play-arrow";
 
+    } else {
+
+      /* Si autre */
+      PreMusicPlayer.PlayPauseButton = "Play";
+      PreMusicPlayer.PlayPauseButtonIcon = "play-arrow";
+      
     }
 
     setMusicPlayer(PreMusicPlayer);
+
+  }
+
+  /* Fonction pour regen la playlist au clic sur le bouton */
+  async function regenPlaylist() {
+
+    await goToTop();
+
+    var predata = getData();
+
+    predata.DLState = translate[current_lang]['PLAYLIST_GENERATE'];
+    setData(predata);
+
+    await TrackPlayer.stop();
+
+    await TrackPlayer.removeUpcomingTracks();
+
+    await TrackPlayer.setupPlayer().then(() => {
+
+      TrackPlayer.updateOptions({  
+        // An array of capabilities that will show up when the notification is in the compact form on Android
+        capabilities: [
+          TrackPlayer.CAPABILITY_PLAY,
+          TrackPlayer.CAPABILITY_PAUSE,
+          TrackPlayer.CAPABILITY_STOP,
+        ],
+        compactCapabilities: [
+            TrackPlayer.CAPABILITY_PLAY,
+            TrackPlayer.CAPABILITY_PAUSE,
+            TrackPlayer.CAPABILITY_STOP
+        ]
+      });
+
+    });
+
+    /* On récup la liste des jingles déjà installées */
+    await RNFS.readdir(RNFS.CachesDirectoryPath + '/jingles').then((jinglesInstall) => {
+
+      /* On récup la liste des musiques déjà installées */
+      RNFS.readdir(RNFS.CachesDirectoryPath + '/songs').then((musiquesInstall) => {
+
+        if (musiquesInstall == undefined || musiquesInstall == []) {
+
+
+        } else {
+
+          /* On va générer la playlist */
+          generatePlaylist(musiquesInstall, jinglesInstall);
+
+        }
+        
+
+      });
+
+    }).catch(err => {
+      /* Musiques pas encore dl on fait rien */
+    });
 
   }
 
@@ -1007,12 +1153,14 @@ const Offline = () => {
     var predata = getData();
     setData(predata);
 
+    updateButton();
+
   }
 
   return (
     <>
       <StatusBar barStyle="dark-content" />
-      <SafeAreaView>
+      <SafeAreaView style={styles.safeareaview}>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={styles.scrollView}
@@ -1072,8 +1220,8 @@ const Offline = () => {
                 </View>
 
                 <View style={styles.MusicPlayer}>
-                    <Icon.Button name={(MusicPlayer == undefined) ? '' : MusicPlayer.PlayPauseButtonIcon} size={25} onPress={() => playPause()} >
-                        {(MusicPlayer == undefined) ? '' : MusicPlayer.PlayPauseButton}
+                    <Icon.Button name={(MusicPlayer == undefined) ? 'play-arrow' : MusicPlayer.PlayPauseButtonIcon} size={25} onPress={() => playPause()} >
+                        {(MusicPlayer == undefined) ? 'Play' : MusicPlayer.PlayPauseButton}
                     </Icon.Button>
                 </View>
 
@@ -1103,6 +1251,27 @@ const Offline = () => {
                 <Text style={styles.MusicTitleLabel}>
                   {translate[current_lang]['ACTIONS']} :
                 </Text>
+
+                <View
+                  style={{
+                    width: '80%',
+                    marginLeft: 'auto',
+                    marginRight: 'auto',
+                    marginBottom: 15,
+                  }}
+                >
+
+                  <Button 
+                  raised
+                  upperCase={false}
+                  style={{container: styles.ActionRegenPlaylist,
+                  text: styles.ActionRegenPlaylistText}}
+                  text={translate[current_lang]['ACTIONS_REGEN_PLAYLIST']}
+                  icon={<Icon name="playlist-play" size={45} color="white" />}
+                  onPress={() => regenPlaylist()}
+                  />
+
+                </View>
 
                 <View
                   style={{
@@ -1156,6 +1325,9 @@ const Offline = () => {
 };
 
 const styles = StyleSheet.create({
+  safeareaview: {
+    marginTop: Platform.OS === 'ios' ? -20 : 0,
+  },
   scrollView: {
     backgroundColor: Colors.lighter,
   },
@@ -1231,8 +1403,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 18,
   },
+  ActionRegenPlaylist: {
+    backgroundColor: '#0C6291',
+    height: 60,
+  },
+  ActionRegenPlaylistText: {
+    color: '#FFFFFF',
+    marginLeft: 10,
+  },
   ActionUpdate: {
-    backgroundColor: 'darkblue',
+    backgroundColor: '#13293D',
     height: 60,
   },
   ActionUpdateText: {
@@ -1240,7 +1420,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   ActionReload: {
-    backgroundColor: 'darkred',
+    backgroundColor: '#B20D30',
     height: 60,
   },
   ActionReloadText: {

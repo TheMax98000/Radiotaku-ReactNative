@@ -13,6 +13,7 @@ import {
   Linking,
   Image,
   Shape,
+  Platform
 } from 'react-native';
 
 import { Button } from 'react-native-material-ui';
@@ -99,8 +100,10 @@ const Home = () => {
     title: 'Partager via',
     message: 'Radiotaku : https://radiotaku.net \n\n La radio 100% J-POP, J-ROCK, OST !', 
   };
- 
+
   // useEffect(()=> {
+
+      
 
   // } , []);
 
@@ -112,10 +115,6 @@ const Home = () => {
       // Creates the player
       TrackPlayer.setupPlayer().then(() => {
 
-        TrackPlayer.stop();
-
-        TrackPlayer.removeUpcomingTracks();
-
         // Adds a track to the queue
         TrackPlayer.add({
             id: 'radiotaku-player',
@@ -124,6 +123,12 @@ const Home = () => {
             artist: '',
         });
 
+      });
+
+      /* Pub au lancement */
+      AdMobInterstitial.setAdUnitID('ca-app-pub-5013571620129762/7170918286');
+      AdMobInterstitial.setTestDevices([AdMobInterstitial.simulatorId]);
+      AdMobInterstitial.requestAd().then(() => AdMobInterstitial.showAd()).catch(err => {
       });
 
       TrackPlayer.updateOptions({  
@@ -136,12 +141,10 @@ const Home = () => {
             TrackPlayer.CAPABILITY_PLAY,
             TrackPlayer.CAPABILITY_STOP
         ]
-      });
+      }).then(() => {
 
-      /* Pub au lancement */
-      AdMobInterstitial.setAdUnitID('ca-app-pub-5013571620129762/7170918286');
-      AdMobInterstitial.setTestDevices([AdMobInterstitial.simulatorId]);
-      AdMobInterstitial.requestAd().then(() => AdMobInterstitial.showAd()).catch(err => {
+        
+
       });
 
       setInterval(() => {
@@ -149,6 +152,12 @@ const Home = () => {
         getMusicTitle();
         
       }, 5000);
+
+      setInterval(() => {
+
+        updateButton();
+        
+      }, 2000);
 
       return () => {
         /* Actions quand perte focus */
@@ -249,40 +258,78 @@ const Home = () => {
 
     }
 
-    function playPause() {
+    async function playPause() {
 
-      /* Si bouton cliqué */
-      PreMusicPlayer = MusicPlayer;
+      var state = await TrackPlayer.getState();
 
-      /* Si Musique stoppée */
-      if (MusicPlayer.State == "stopped") {
-
-        /* On lance la musique */
-        PreMusicPlayer.State = "playing";
-        PreMusicPlayer.PlayPauseButton = "Stop";
-        PreMusicPlayer.PlayPauseButtonIcon = "stop";
-        //global.RadioPlayer.play();
-        TrackPlayer.play();
-
-      } else if (MusicPlayer.State == "playing") {
-        /* Si Musique en cours */
-
-        /* On arrête la musique */
-        PreMusicPlayer.State = "stopped";
+      console.log('state :');
+      console.log(state);
+  
+      if (state == TrackPlayer.STATE_STOPPED || state == TrackPlayer.STATE_PAUSED || state == 'idle' || state == TrackPlayer.STATE_BUFFERING  || state == TrackPlayer.STATE_READY) {
+  
+        await TrackPlayer.play();
+  
+      } else if (state == TrackPlayer.STATE_PLAYING) {
+  
+        await TrackPlayer.stop();
+        await TrackPlayer.removeUpcomingTracks();
+        await TrackPlayer.add({
+          id: 'radiotaku-player',
+          url: 'https://radiotaku.net/stream',
+          title: 'Radiotaku',
+          artist: '',
+        });
+  
+      }
+  
+      updateButton();
+  
+    }
+  
+    async function updateButton() {
+  
+      if (MusicPlayer !== undefined) {
+  
+        PreMusicPlayer = MusicPlayer;
+  
+      } else {
+  
+        PreMusicPlayer = new Object();
+  
+      }
+  
+      var state = await TrackPlayer.getState();
+  
+      /* Si on vient de faire play */
+      if (state == TrackPlayer.STATE_PLAYING) {
+  
+        PreMusicPlayer.PlayPauseButton = "Pause";
+        PreMusicPlayer.PlayPauseButtonIcon = "pause";
+  
+      } else if (state == TrackPlayer.STATE_STOPPED || state == TrackPlayer.STATE_PAUSED) {
+  
+        /* Si on vient de faire pause ou stop */
         PreMusicPlayer.PlayPauseButton = "Play";
         PreMusicPlayer.PlayPauseButtonIcon = "play-arrow";
-        TrackPlayer.stop();
-
+  
+      } else {
+  
+        /* Si autre */
+        PreMusicPlayer.PlayPauseButton = "Play";
+        PreMusicPlayer.PlayPauseButtonIcon = "play-arrow";
+        
       }
-
+  
       setMusicPlayer(PreMusicPlayer);
-
+  
     }
 
     /* Execution au lancement */
     if (Data == undefined) {
 
       getMusicTitle();
+
+      updateButton();
 
     }
 
@@ -301,7 +348,7 @@ const Home = () => {
   return (
     <>
       <StatusBar barStyle="dark-content" />
-      <SafeAreaView>
+      <SafeAreaView style={styles.safeareaview}>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={styles.scrollView}
@@ -452,6 +499,9 @@ const Home = () => {
 };
 
 const styles = StyleSheet.create({
+  safeareaview: {
+    marginTop: Platform.OS === 'ios' ? -20 : 0,
+  },
   scrollView: {
     backgroundColor: Colors.lighter,
   },
@@ -528,7 +578,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   HelpUtip: {
-    backgroundColor: 'darkred',
+    backgroundColor: '#0C6291',
     height: 60,
   },
   HelpUtipText: {
@@ -536,7 +586,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   ShareBtn: {
-    backgroundColor: 'darkgreen',
+    backgroundColor: '#B20D30',
     height: 60,
   },
   ShareBtnText: {
